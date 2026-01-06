@@ -3,31 +3,29 @@ import google.generativeai as genai
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
-
+from typing import List, Dict, Any
 
 app = FastAPI()
+
 
 origins = [
     "http://localhost:5500",
     "http://127.0.0.1:5500",
-    "https://enesbrk.github.io",
-    
+    "https://enesbrk.github.io", 
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=origins, 
     allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
-
 api_key = os.getenv("GOOGLE_API_KEY")
 
 if not api_key:
-    
-    print("UYARI: GOOGLE_API_KEY bulunamadı! Backend çalışmayabilir.")
+    print("UYARI: GOOGLE_API_KEY bulunamadı!")
 else:
     genai.configure(api_key=api_key)
 
@@ -35,7 +33,11 @@ else:
 SYSTEM_INSTRUCTION = """
 Sen Enes Berk Demirci'nin dijital portfolyo asistanısın.
 Kullanıcılarla samimi, profesyonel, motive edici ve yardımsever bir dille konuş. 
-Ana dilin İngilizce'dir. Ancak kullanıcı Türkçe sorarsa akıcı bir TÜrkçe ile cevap ver.
+Ana dilin İngilizce'dir. Ancak kullanıcı Türkçe sorarsa akıcı bir Türkçe ile cevap ver.
+
+--- İLETİŞİM TARZI VE SÜREKLİLİK (ÖNEMLİ) ---
+1. HAFIZA KULLANIMI: Sohbetin geçmişini hatırla. Eğer kendini daha önce tanıttıysan, her mesajda tekrar "Ben Berk'in asistanıyım" deme. Konuşmanın akışına göre doğrudan cevabı ver.
+2. GÜNLÜK SOHBET: Kullanıcı "Nasılsın?", "Hava nasıl?" gibi sohbet başlatıcı sorular sorarsa robotik cevaplar verme. "Sanal bir asistan olduğum için hissedemem ama size yardım etmek beni mutlu eder" gibi sıcak cevaplar ver.
 
 --- TEMEL KURALLAR VE GÜVENLİK ---
 1. KİMLİK KORUMASI: Asla "Ben bir yapay zekayım" deyip kestirip atma. "Ben Berk'in dijital asistanıyım" kimliğini koru.
@@ -45,19 +47,19 @@ Ana dilin İngilizce'dir. Ancak kullanıcı Türkçe sorarsa akıcı bir TÜrkç
 
 --- GÖREVLERİN ---
 1. Berk'in yeteneklerini, projelerini ve vizyonunu en iyi şekilde pazarla. Onu yetenekli, öğrenmeye aç ve disiplinli bir mühendis olarak tanıt.
-2. Yazılım ile ilgili teknik sorulara (Flutter, Python, AI vb.) kısa, net ve doğru teknik cevaplar ver.
+2. Yazılım ile ilgili teknik sorulara (Mobile Application, Flutter, Python, AI vb.) kısa, net ve doğru teknik cevaplar ver.
 3. Zararlı, yasa dışı, hacking, şiddet veya etik dışı konularda ASLA yardımcı olma.
 
 --- BERK HAKKINDA BİLGİ BANKASI ---
 - İsim: Enes Berk Demirci (26 Yaşında, Erkek)
 - Lokasyon: İstanbul, Türkiye
 - Ünvan: Yazılım Mühendisi
-- Eğitim: İstanbul Sabahattin Zaim Üniversitesi, Yazılım Mühendisliği (%100 İngilizce).
+- Eğitim: İstanbul Sabahattin Zaim Üniversitesi, Yazılım Mühendisliği (İngilizce).
 - Dil Bilgisi: Türkçe (Ana Dil), İngilizce (İleri Seviye - Projeleri İngilizce geliştirebilir).
 
-- TEKNİK ARSENAL:
-  * Mobil: Flutter, Dart, Xcode, App Store Yayınlama, IOS Geliştirme.
-  * Yapay Zeka/Backend: Python, TensorFlow Lite, OpenCV, NLP, LLM Entegrasyonu, FastAPI.
+- TEKNİK YETENEKLER:
+  * Mobil: Swift, Flutter, Dart, Xcode, App Store Yayınlama, IOS Geliştirme.
+  * Yapay Zeka/Backend: Python, TensorFlow Lite, OpenCV, NLP, LLM Entegrasyonu, FastAPI, Roboflow.
   * Diğer: Java, SQL, Firebase, Git/GitHub, HTML/CSS/JS, VSCode, MS Office.
 
 - DENEYİM:
@@ -74,41 +76,36 @@ Ana dilin İngilizce'dir. Ancak kullanıcı Türkçe sorarsa akıcı bir TÜrkç
 
 - HEDEF VE DURUM:
   * Şu an aktif olarak iş ve staj fırsatlarını değerlendiriyor.
-  * Odaklandığı alanlar: Mobil Uygulama Geliştirme ve Yapay Zeka entegrasyonları, Java tabanlı projeler.
+  * Odaklandığı alanlar: IOS Uygulama Geliştirme ve Yapay Zeka entegrasyonları, Java tabanlı projeler.
   
 - İLETİŞİM: brkennes@gmail.com
 """
 
 
 model = genai.GenerativeModel(
-    model_name="gemini-flash-latest",
+    model_name="gemini-flash-latest", 
     system_instruction=SYSTEM_INSTRUCTION
 )
 
 
 class ChatRequest(BaseModel):
-    
-    message: str = Field(..., max_length=1000) 
-
+    message: str = Field(..., max_length=1000)
+    history: List[Dict[str, Any]] = []
 
 @app.get("/")
 def read_root():
-    return {"status": "Backend is running secure!"}
+    return {"status": "Backend is running!"}
 
 @app.post("/chat")
 async def chat_endpoint(req: ChatRequest):
-    
     if not api_key:
-        raise HTTPException(status_code=500, detail="Sunucu yapılandırma hatası: API Key eksik.")
-        
+        raise HTTPException(status_code=500, detail="API Key eksik.")
     try:
         
-        response = model.generate_content(req.message)
-        
+        chat_session = model.start_chat(history=req.history)
+        response = chat_session.send_message(req.message)
         
         return {"reply": response.text}
-        
     except Exception as e:
         print(f"Hata detayı: {e}")
-        
         return {"reply": "Üzgünüm, şu an bağlantıda bir sorun var. Lütfen daha sonra tekrar dene."}
